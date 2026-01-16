@@ -1,0 +1,12 @@
+{
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.project.sourcePaths": [
+        "src/main/java",
+        "src/test/java"
+    ],
+    "java.import.generatesMetadataFilesAtProjectRoot": false,
+    "java.silentNotification": true,
+    "java.errors.incompleteClasspath.severity": "ignore",
+    "java.warnings.incompleteClasspath.severity": "ignore"
+}

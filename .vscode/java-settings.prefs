@@ -1,0 +1,14 @@
+# Eclipse JDT Core Settings for VS Code Java Extension
+# Suppress warnings for generated code
+
+# Suppress unnecessary @SuppressWarnings warnings
+org.eclipse.jdt.core.compiler.problem.unusedWarningToken=ignore
+
+# Suppress redundant superinterface warnings
+org.eclipse.jdt.core.compiler.problem.redundantSuperinterface=ignore
+
+# Suppress raw type warnings
+org.eclipse.jdt.core.compiler.problem.rawTypeReference=ignore
+
+# Suppress unchecked type warnings
+org.eclipse.jdt.core.compiler.problem.uncheckedTypeOperation=ignore

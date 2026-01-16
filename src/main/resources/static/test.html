@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notification Service - WebSocket 測試</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd6;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+        }
+
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-time {
+            color: #888;
+        }
+
+        .log-type {
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin: 0 5px;
+        }
+
+        .log-type.send {
+            background: #667eea;
+            color: white;
+        }
+
+        .log-type.receive {
+            background: #28a745;
+            color: white;
+        }
+
+        .log-type.error {
+            background: #dc3545;
+            color: white;
+        }
+
+        .log-type.info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .log-content {
+            color: #ddd;
+            word-break: break-all;
+        }
+
+        .subscriptions {
+            margin-top: 10px;
+        }
+
+        .subscription-tag {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            margin: 5px 5px 5px 0;
+            font-size: 12px;
+        }
+
+        .subscription-tag .remove {
+            cursor: pointer;
+            margin-left: 5px;
+            opacity: 0.7;
+        }
+
+        .subscription-tag .remove:hover {
+            opacity: 1;
+        }
+
+        .quick-actions {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .info-text {
+            color: #666;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔔 Notification Service 測試面板</h1>
+
+        <div class="grid">
+            <!-- 連線控制 -->
+            <div class="card">
+                <h2>🔌 連線控制</h2>
+                <div class="form-group">
+                    <label>WebSocket URL</label>
+                    <input type="text" id="wsUrl" value="ws://localhost:8080/ws/notifications">
+                </div>
+                <div>
+                    <span class="status disconnected" id="connectionStatus">未連線</span>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button class="btn-success" onclick="connect()">連線</button>
+                    <button class="btn-danger" onclick="disconnect()">斷線</button>
+                </div>
+
+                <div class="quick-actions">
+                    <h3 style="margin-bottom: 10px; color: #333;">訂閱管理</h3>
+                    <div class="form-group">
+                        <label>Event ID</label>
+                        <input type="text" id="eventId" placeholder="輸入 eventId (例如: test-event-001)">
+                    </div>
+                    <button class="btn-primary" onclick="subscribe()">訂閱</button>
+                    <button class="btn-secondary" onclick="unsubscribe()">取消訂閱</button>
+                    <button class="btn-warning" onclick="sendPing()">發送 Ping</button>
+
+                    <div class="subscriptions" id="subscriptions">
+                        <label>已訂閱:</label>
+                        <div id="subscriptionList">尚無訂閱</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 模擬 API -->
+            <div class="card">
+                <h2>🔧 模擬 Kafka 事件</h2>
+                <div class="form-group">
+                    <label>API Base URL</label>
+                    <input type="text" id="apiUrl" value="http://localhost:8080">
+                </div>
+                <div class="form-group">
+                    <label>Event ID (用於模擬)</label>
+                    <input type="text" id="simulateEventId" placeholder="輸入要模擬的 eventId">
+                </div>
+
+                <!-- 失敗狀態碼設定 -->
+                <div class="form-group"
+                    style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                    <h4 style="margin-bottom: 10px; color: #333;">📊 失敗狀態碼設定</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <label>狀態碼</label>
+                            <select id="failureStatus"
+                                style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;">
+                                <optgroup label="業務錯誤 (2xxx) - WARN">
+                                    <option value="2000">2000 - 業務錯誤</option>
+                                    <option value="2001">2001 - 資料不存在</option>
+                                    <option value="2002">2002 - 驗證失敗</option>
+                                    <option value="2003">2003 - 權限不足</option>
+                                    <option value="2004">2004 - 重複請求</option>
+                                </optgroup>
+                                <optgroup label="系統錯誤 (3xxx) - ERROR">
+                                    <option value="3000">3000 - 系統錯誤</option>
+                                    <option value="3001" selected>3001 - 處理超時</option>
+                                    <option value="3002">3002 - 服務不可用</option>
+                                    <option value="3003">3003 - 內部錯誤</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div>
+                            <label>錯誤訊息</label>
+                            <input type="text" id="failureMessage" value="處理超時" placeholder="錯誤描述">
+                        </div>
+                    </div>
+                    <div class="info-text" style="margin-top: 8px;">
+                        狀態碼：1xxx=成功(INFO)、2xxx=業務錯誤(WARN)、3xxx=系統錯誤(ERROR)
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <button class="btn-success" onclick="simulateSuccess()">模擬成功</button>
+                    <button class="btn-danger" onclick="simulateFailure()">模擬失敗</button>
+                    <button class="btn-warning" onclick="simulateDelayed()">模擬延遲 (3秒)</button>
+                </div>
+
+                <div class="quick-actions">
+                    <h3 style="margin-bottom: 10px; color: #333;">系統狀態</h3>
+                    <button class="btn-primary" onclick="checkStatus()">查詢狀態</button>
+                    <button class="btn-primary" onclick="checkHealth()">健康檢查</button>
+                    <button class="btn-primary" onclick="checkMetrics()">查看指標</button>
+                </div>
+
+                <div class="info-text">
+                    <strong>測試流程:</strong><br>
+                    1. 點擊「連線」建立 WebSocket<br>
+                    2. 輸入 eventId 並點擊「訂閱」<br>
+                    3. 複製相同 eventId 到模擬欄位<br>
+                    4. 點擊「模擬成功」觀察通知推送
+                </div>
+            </div>
+        </div>
+
+        <!-- 訊息日誌 -->
+        <div class="card" style="margin-top: 20px;">
+            <h2>📋 訊息日誌 <button class="btn-secondary" style="float: right;" onclick="clearLog()">清除</button></h2>
+            <div class="log-container" id="logContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let subscriptions = new Set();
+
+        function log(type, content) {
+            const container = document.getElementById('logContainer');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            let typeClass = 'info';
+            let typeLabel = 'INFO';
+            if (type === 'send') {
+                typeClass = 'send';
+                typeLabel = '發送';
+            } else if (type === 'receive') {
+                typeClass = 'receive';
+                typeLabel = '收到';
+            } else if (type === 'error') {
+                typeClass = 'error';
+                typeLabel = '錯誤';
+            }
+
+            entry.innerHTML = `
+                <span class="log-time">${time}</span>
+                <span class="log-type ${typeClass}">${typeLabel}</span>
+                <span class="log-content">${typeof content === 'object' ? JSON.stringify(content, null, 2) : content}</span>
+            `;
+            container.insertBefore(entry, container.firstChild);
+        }
+
+        function clearLog() {
+            document.getElementById('logContainer').innerHTML = '';
+        }
+
+        function updateStatus(connected) {
+            const status = document.getElementById('connectionStatus');
+            if (connected) {
+                status.className = 'status connected';
+                status.textContent = '已連線';
+            } else {
+                status.className = 'status disconnected';
+                status.textContent = '未連線';
+            }
+        }
+
+        function updateSubscriptionList() {
+            const list = document.getElementById('subscriptionList');
+            if (subscriptions.size === 0) {
+                list.innerHTML = '尚無訂閱';
+                return;
+            }
+            list.innerHTML = Array.from(subscriptions).map(eventId =>
+                `<span class="subscription-tag">${eventId} <span class="remove" onclick="unsubscribeById('${eventId}')">×</span></span>`
+            ).join('');
+        }
+
+        function connect() {
+            const url = document.getElementById('wsUrl').value;
+            try {
+                ws = new WebSocket(url);
+
+                ws.onopen = function () {
+                    log('info', '✅ WebSocket 連線成功');
+                    updateStatus(true);
+                };
+
+                ws.onmessage = function (event) {
+                    const data = JSON.parse(event.data);
+                    log('receive', data);
+
+                    if (data.type === 'subscribed') {
+                        subscriptions.add(data.eventId);
+                        updateSubscriptionList();
+                    } else if (data.type === 'unsubscribed') {
+                        subscriptions.delete(data.eventId);
+                        updateSubscriptionList();
+                    } else if (data.type === 'notification') {
+                        // 突出顯示通知
+                        const statusType = data.status < 2000 ? '✅ 成功' : (data.status < 3000 ? '⚠️ 業務錯誤' : '❌ 系統錯誤');
+                        alert(`🔔 收到通知!\n\nEvent ID: ${data.eventId}\n狀態碼: ${data.status} (${statusType})\n訊息: ${data.message || ''}`);
+                    }
+                };
+
+                ws.onclose = function () {
+                    log('info', '❌ WebSocket 連線關閉');
+                    updateStatus(false);
+                    subscriptions.clear();
+                    updateSubscriptionList();
+                };
+
+                ws.onerror = function (error) {
+                    log('error', 'WebSocket 錯誤');
+                };
+            } catch (e) {
+                log('error', '連線失敗: ' + e.message);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function subscribe() {
+            const eventId = document.getElementById('eventId').value.trim();
+            if (!eventId) {
+                alert('請輸入 Event ID');
+                return;
+            }
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('請先建立連線');
+                return;
+            }
+
+            const msg = { type: 'subscribe', eventId: eventId };
+            ws.send(JSON.stringify(msg));
+            log('send', msg);
+        }
+
+        function unsubscribe() {
+            const eventId = document.getElementById('eventId').value.trim();
+            if (!eventId) {
+                alert('請輸入 Event ID');
+                return;
+            }
+            unsubscribeById(eventId);
+        }
+
+        function unsubscribeById(eventId) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('請先建立連線');
+                return;
+            }
+
+            const msg = { type: 'unsubscribe', eventId: eventId };
+            ws.send(JSON.stringify(msg));
+            log('send', msg);
+        }
+
+        function sendPing() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('請先建立連線');
+                return;
+            }
+
+            const msg = { type: 'ping', timestamp: Date.now() };
+            ws.send(JSON.stringify(msg));
+            log('send', msg);
+        }
+
+        async function simulateSuccess() {
+            const eventId = document.getElementById('simulateEventId').value.trim();
+            if (!eventId) {
+                alert('請輸入要模擬的 Event ID');
+                return;
+            }
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            try {
+                const response = await fetch(`${apiUrl}/api/simulate/success/${eventId}?message=處理完成`, { method: 'POST' });
+                const data = await response.json();
+                log('info', `模擬成功事件: ${JSON.stringify(data)}`);
+            } catch (e) {
+                log('error', `模擬失敗: ${e.message}`);
+            }
+        }
+
+        async function simulateFailure() {
+            const eventId = document.getElementById('simulateEventId').value.trim();
+            if (!eventId) {
+                alert('請輸入要模擬的 Event ID');
+                return;
+            }
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            const status = document.getElementById('failureStatus').value;
+            const message = document.getElementById('failureMessage').value || '處理超時';
+            try {
+                const response = await fetch(`${apiUrl}/api/simulate/failed/${eventId}?status=${status}&message=${encodeURIComponent(message)}`, { method: 'POST' });
+                const data = await response.json();
+                log('info', `模擬失敗事件: ${JSON.stringify(data)}`);
+            } catch (e) {
+                log('error', `模擬失敗: ${e.message}`);
+            }
+        }
+
+        async function simulateDelayed() {
+            const eventId = document.getElementById('simulateEventId').value.trim();
+            if (!eventId) {
+                alert('請輸入要模擬的 Event ID');
+                return;
+            }
+
+            const apiUrl = document.getElementById('apiUrl').value;
+            try {
+                const response = await fetch(`${apiUrl}/api/simulate/delayed/${eventId}?delaySeconds=3`, { method: 'POST' });
+                const data = await response.json();
+                log('info', `模擬延遲事件 (3秒後推送): ${JSON.stringify(data)}`);
+            } catch (e) {
+                log('error', `模擬失敗: ${e.message}`);
+            }
+        }
+
+        async function checkStatus() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            try {
+                const response = await fetch(`${apiUrl}/api/status`);
+                const data = await response.json();
+                log('info', `系統狀態: ${JSON.stringify(data, null, 2)}`);
+            } catch (e) {
+                log('error', `查詢失敗: ${e.message}`);
+            }
+        }
+
+        async function checkHealth() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            try {
+                const response = await fetch(`${apiUrl}/api/health`);
+                const data = await response.json();
+                log('info', `健康檢查: ${JSON.stringify(data, null, 2)}`);
+            } catch (e) {
+                log('error', `查詢失敗: ${e.message}`);
+            }
+        }
+
+        async function checkMetrics() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            try {
+                const response = await fetch(`${apiUrl}/api/metrics/custom`);
+                const data = await response.json();
+                log('info', `系統指標: ${JSON.stringify(data, null, 2)}`);
+            } catch (e) {
+                log('error', `查詢失敗: ${e.message}`);
+            }
+        }
+
+        // 初始化
+        log('info', '🚀 測試面板已就緒，請點擊「連線」開始');
+    </script>
+</body>
+
+</html>

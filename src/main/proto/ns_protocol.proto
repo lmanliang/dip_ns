@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package ns.protocol;
+
+option java_package = "com.osw.dmp.ns.grpc";
+option java_outer_classname = "NsProtocol";
+option java_multiple_files = true;
+
+// ============================================
+// 節點間通訊服務
+// ============================================
+service NodeService {
+    // 跨節點推送通知
+    rpc PushNotification(PushRequest) returns (PushResponse);
+    
+    // 心跳檢查
+    rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+    
+    // 查詢節點狀態
+    rpc GetNodeStatus(NodeStatusRequest) returns (NodeStatusResponse);
+}
+
+// ============================================
+// 推送通知
+// ============================================
+message PushRequest {
+    string event_id = 1;           // 事件 ID
+    string session_id = 2;         // 目標 Session ID
+    int32 status = 3;              // 業務狀態碼
+    string message = 4;            // 訊息內容
+    int64 timestamp = 5;           // 時間戳
+    string source_node_id = 6;     // 來源節點 ID（用於追蹤）
+    string trace_id = 7;           // 追蹤 ID
+}
+
+message PushResponse {
+    bool success = 1;              // 是否成功
+    PushResultCode code = 2;       // 結果碼
+    string message = 3;            // 訊息（失敗原因）
+}
+
+enum PushResultCode {
+    PUSH_SUCCESS = 0;              // 推送成功
+    SESSION_NOT_FOUND = 1;         // Session 不存在
+    SESSION_CLOSED = 2;            // Session 已關閉
+    SEND_FAILED = 3;               // 發送失敗
+    INTERNAL_ERROR = 4;            // 內部錯誤
+}
+
+// ============================================
+// 心跳
+// ============================================
+message HeartbeatRequest {
+    string node_id = 1;            // 節點 ID
+    int64 timestamp = 2;           // 時間戳
+}
+
+message HeartbeatResponse {
+    bool alive = 1;                // 是否存活
+    int64 timestamp = 2;           // 回應時間戳
+}
+
+// ============================================
+// 節點狀態
+// ============================================
+message NodeStatusRequest {
+    string node_id = 1;            // 要查詢的節點 ID（空則查自己）
+}
+
+message NodeStatusResponse {
+    string node_id = 1;
+    string grpc_address = 2;
+    int64 started_at = 3;
+    int32 active_connections = 4;  // 活躍連線數
+    int32 active_subscriptions = 5; // 活躍訂閱數
+}
